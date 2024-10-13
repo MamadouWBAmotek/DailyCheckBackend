@@ -24,6 +24,8 @@ BuildLogs/
 *.snupkg
 
 # Fichiers de configuration spécifiques à l'environnement
+appsettings.json
+appsettings.Development.json
 appsettings*.json  # Ignore tous les fichiers qui commencent par appsettings
 # Assurez-vous que `appsettings.json` est suivi si nécessaire.
 

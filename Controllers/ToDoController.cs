@@ -1,7 +1,11 @@
+// Controllers/ToDoController.cs
+
 using DailyCheckBackend.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace DailyCheckBackend.Controllers
 {
@@ -18,17 +22,11 @@ namespace DailyCheckBackend.Controllers
 
         // GET: api/todo/todos
         [HttpGet("todos")]
-      public async Task<ActionResult<IEnumerable<ToDo>>> GetToDos([FromQuery] Status? status)
+        public async Task<ActionResult<IEnumerable<ToDo>>> GetToDos()
         {
-            if (status.HasValue) // Vérification si le statut est passé dans la requête
-            {
-                return await _dailyCheckDbContext.ToDos
-                    .Where(t => t.Status == status.Value) // Filtrage par statut
-                    .ToListAsync();
-            }
-            return await _dailyCheckDbContext.ToDos.ToListAsync();
+            var todos = await _dailyCheckDbContext.ToDos.ToListAsync();
+            return todos;
         }
-
 
         // GET: api/todo/{id}
         [HttpGet("{id}")]
@@ -58,6 +56,11 @@ namespace DailyCheckBackend.Controllers
                 return BadRequest(ModelState);
             }
 
+            if (todo.Deadline < DateTime.Now)
+            {
+                return BadRequest("The deadline cannot be in the past.");
+            }
+
             _dailyCheckDbContext.ToDos.Add(todo);
             await _dailyCheckDbContext.SaveChangesAsync();
 
@@ -70,12 +73,17 @@ namespace DailyCheckBackend.Controllers
         {
             if (id != todo.Id)
             {
-                return BadRequest();
+                return BadRequest("The ID provided does not match the ToDo item.");
             }
 
             if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
+            }
+
+            if (todo.Deadline < DateTime.Now)
+            {
+                return BadRequest("The deadline cannot be in the past.");
             }
 
             _dailyCheckDbContext.Entry(todo).State = EntityState.Modified;
