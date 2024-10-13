@@ -1,0 +1,49 @@
+# Fichiers spécifiques à l'utilisateur et à Visual Studio
+*.rsuser
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Dossiers spécifiques à Visual Studio
+.vscode/
+.idea/
+.ionide/
+
+# Dossiers de compilation
+bin/
+obj/
+
+# Dossiers pour les tests
+TestResults/
+BuildLogs/
+
+# Fichiers générés automatiquement par le framework
+*.log
+*.nupkg
+*.snupkg
+
+# Fichiers de configuration spécifiques à l'environnement
+appsettings*.json  # Ignore tous les fichiers qui commencent par appsettings
+# Assurez-vous que `appsettings.json` est suivi si nécessaire.
+
+# Ignorer les fichiers et dossiers créés par des outils tiers
+node_modules/
+wwwroot/
+
+# Logs et fichiers temporaires
+*.log
+*.tmp
+
+# Autres fichiers temporaires
+*.cache
+*.pdb
+*.dbmdl
+*.dbproj.schemaview
+*.dbproj.user
+
+# Ignorer les fichiers générés par le compilateur
+*.dll
+*.exe
+*.exe.config
+*.pdb
