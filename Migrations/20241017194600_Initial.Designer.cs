@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace DailyCheckBackend.Migrations
 {
     [DbContext(typeof(DailyCheckDbContext))]
-    [Migration("20241011083341_Initial")]
+    [Migration("20241017194600_Initial")]
     partial class Initial
     {
         /// <inheritdoc />
@@ -68,8 +68,9 @@ namespace DailyCheckBackend.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<int>("UserId")
-                        .HasColumnType("integer");
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("text");
 
                     b.HasKey("Id");
 

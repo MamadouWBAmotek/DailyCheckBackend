@@ -1,11 +1,7 @@
-// Controllers/ToDoController.cs
-
+using System;
 using DailyCheckBackend.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 
 namespace DailyCheckBackend.Controllers
 {
@@ -25,7 +21,66 @@ namespace DailyCheckBackend.Controllers
         public async Task<ActionResult<IEnumerable<ToDo>>> GetToDos()
         {
             var todos = await _dailyCheckDbContext.ToDos.ToListAsync();
-            return todos;
+            if (todos.Count() == 0)
+            {
+                return NotFound(new { message = "No To-Dos found." }); // Réponse si vide
+            }
+            else
+            {
+                return Ok(new { todos = todos }); // Retourner la liste des To-Dos à venir
+            }
+        }
+
+        [HttpGet("todos/upcoming")] // Point de terminaison pour obtenir les To-Dos à venir
+        public async Task<ActionResult<IEnumerable<ToDo>>> GetUpcomingToDos()
+        {
+            // Récupérer tous les To-Dos avec le statut Upcoming
+            var todos = await _dailyCheckDbContext
+                .ToDos.Where(todo => todo.Status == Status.Upcoming) // Filtrer par statut
+                .ToListAsync(); // Convertir le résultat en liste
+            if (todos.Count() == 0)
+            {
+                return NotFound(new { message = "No upco;ingu; To-Dos found." }); // Réponse si vide
+            }
+            else
+            {
+                return Ok(new { todos = todos }); // Retourner la liste des To-Dos à venir
+            }
+        }
+
+        [HttpGet("todos/done")] // Point de terminaison pour obtenir les To-Dos à venir
+        public async Task<ActionResult<IEnumerable<ToDo>>> GetDoneToDos()
+        {
+            // Récupérer tous les To-Dos avec le statut Upcoming
+            var todos = await _dailyCheckDbContext
+                .ToDos.Where(todo => todo.Status == Status.Done) // Filtrer par statut
+                .ToListAsync(); // Convertir le résultat en liste
+            if (todos.Count() == 0)
+            {
+                return NotFound(new { message = "No done To-Dos found." }); // Réponse si vide
+            }
+            else
+            {
+                return Ok(new { todos = todos }); // Retourner la liste des To-Dos à venir
+            }
+        }
+
+        [HttpGet("todos/cancelled")] // Point de terminaison pour obtenir les To-Dos à venir
+        public async Task<ActionResult<IEnumerable<ToDo>>> GetCancelledToDos()
+        {
+            // Récupérer tous les To-Dos avec le statut Upcoming
+            var todos = await _dailyCheckDbContext
+                .ToDos.Where(todo => todo.Status == Status.Cancelled) // Filtrer par statut
+                .ToListAsync(); // Convertir le résultat en liste
+
+            if (todos.Count() == 0)
+            {
+                return NotFound(new { message = "No cancelled To-Dos found." }); // Réponse si vide
+            }
+            else
+            {
+                return Ok(new { todos = todos }); // Retourner la liste des To-Dos à venir
+            }
         }
 
         // GET: api/todo/{id}
@@ -44,8 +99,12 @@ namespace DailyCheckBackend.Controllers
 
         // POST: api/todo/create
         [HttpPost("create")]
-        public async Task<ActionResult<ToDo>> CreateToDo([FromBody] ToDo todo)
+        public async Task<ActionResult> CreateToDo([FromBody] ToDo todo)
         {
+            Console.WriteLine(
+                $"Received: {todo.Title}, {todo.Description}, {todo.Deadline}, {todo.UserId}"
+            );
+
             if (todo == null)
             {
                 return BadRequest("ToDo cannot be null.");
@@ -60,11 +119,19 @@ namespace DailyCheckBackend.Controllers
             {
                 return BadRequest("The deadline cannot be in the past.");
             }
+            var newToDo = new ToDo
+            {
+                Title = todo.Title,
+                Description = todo.Description,
+                Status = Status.Upcoming, // Default status if not provided
+                UserId = todo.UserId,
+                Deadline = todo.Deadline,
+            };
 
-            _dailyCheckDbContext.ToDos.Add(todo);
+            _dailyCheckDbContext.ToDos.Add(newToDo);
             await _dailyCheckDbContext.SaveChangesAsync();
-
-            return CreatedAtAction(nameof(GetToDoById), new { id = todo.Id }, todo);
+            Console.WriteLine("this is the controller");
+            return Ok();
         }
 
         // PUT: api/todo/{id}

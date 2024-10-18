@@ -37,7 +37,7 @@ namespace DailyCheckBackend.Controllers
                     Email = model.Email,
                     UserName = model.UserName,
                     Password = passwordHasher.HashPassword(null, model.Password), // Hashing the password
-                    Role = Role.User
+                    Role = Role.User,
                 };
 
                 try
@@ -62,12 +62,18 @@ namespace DailyCheckBackend.Controllers
                         }
                         else
                         {
-                            return StatusCode(500, "An unexpected error occurred while saving your information.");
+                            return StatusCode(
+                                500,
+                                "An unexpected error occurred while saving your information."
+                            );
                         }
                     }
                     else
                     {
-                        return StatusCode(500, "An unexpected error occurred while saving your information.");
+                        return StatusCode(
+                            500,
+                            "An unexpected error occurred while saving your information."
+                        );
                     }
                 }
             }
@@ -83,15 +89,19 @@ namespace DailyCheckBackend.Controllers
             {
                 // Authentication by username or email
                 var user = _dailyCheckDbContext.Users.FirstOrDefault(u =>
-                    u.UserName.ToLower().Trim() == model.UserNameOrEmail.ToLower().Trim() ||
-                    u.Email.ToLower().Trim() == model.UserNameOrEmail.ToLower().Trim());
+                    u.UserName.ToLower().Trim() == model.UserNameOrEmail.ToLower().Trim()
+                    || u.Email.ToLower().Trim() == model.UserNameOrEmail.ToLower().Trim()
+                );
 
                 if (user != null)
                 {
                     var passwordHasher = new PasswordHasher<User>();
 
-
-                    var result = passwordHasher.VerifyHashedPassword(user, user.Password, model.Password);
+                    var result = passwordHasher.VerifyHashedPassword(
+                        user,
+                        user.Password,
+                        model.Password
+                    );
 
                     if (result == PasswordVerificationResult.Success)
                     {
@@ -116,7 +126,9 @@ namespace DailyCheckBackend.Controllers
 
         // Google login - Check if the email exists in the database
         [HttpPost("loginwithgoogle")]
-        public async Task<IActionResult> LoginWithGoogle([FromBody] loginWithGoogleViewModel googleOauthData)
+        public async Task<IActionResult> LoginWithGoogle(
+            [FromBody] loginWithGoogleViewModel googleOauthData
+        )
         {
             if (googleOauthData == null || string.IsNullOrEmpty(googleOauthData.Email))
             {
@@ -124,13 +136,13 @@ namespace DailyCheckBackend.Controllers
                 return BadRequest("Email not provided.");
             }
 
-            var user = await _dailyCheckDbContext.Users
-                        .Where(u => u.Email == googleOauthData.Email)
-                        .FirstOrDefaultAsync();
+            var user = await _dailyCheckDbContext
+                .Users.Where(u => u.Email == googleOauthData.Email)
+                .FirstOrDefaultAsync();
 
-            var googleUser = await _dailyCheckDbContext.GoogleUsers
-                        .Where(u => u.Email == googleOauthData.Email)
-                        .FirstOrDefaultAsync();
+            var googleUser = await _dailyCheckDbContext
+                .GoogleUsers.Where(u => u.Email == googleOauthData.Email)
+                .FirstOrDefaultAsync();
 
             // If no Google user exists and the email is not in the Users table
             if (googleUser == null && user?.Email != googleOauthData.Email)
@@ -141,25 +153,26 @@ namespace DailyCheckBackend.Controllers
                     Id = googleOauthData.Id,
                     Username = googleOauthData.Username,
                     Email = googleOauthData.Email,
-                    Role = Role.User // Assign the 'User' role
+                    Role =
+                        Role.User // Assign the 'User' role
+                    ,
                 };
                 _dailyCheckDbContext.GoogleUsers.Add(newGoogleUser);
                 _dailyCheckDbContext.SaveChanges();
-                return Ok(new { exists = false });
+                return Ok(new { exists = false, user = newGoogleUser });
             }
             else if (googleOauthData.Email == user?.Email)
             {
                 // If it's a regular user, return that the email is already in use
 
-                return Ok(new { exists = false });
+                return Ok(new { exists = false, user = user });
             }
             else
             {
                 // If a Google user already exists
-                return Ok(new { exists = true });
+                return Ok(new { exists = true, user = googleUser });
             }
         }
-
 
         [HttpPost("logout")]
         public async Task<IActionResult> Logout()
