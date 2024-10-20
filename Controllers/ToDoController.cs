@@ -131,37 +131,51 @@ namespace DailyCheckBackend.Controllers
             _dailyCheckDbContext.ToDos.Add(newToDo);
             await _dailyCheckDbContext.SaveChangesAsync();
             Console.WriteLine("this is the controller");
-            return Ok();
+            return Ok(new { todo = newToDo });
         }
 
-        // PUT: api/todo/{id}
-        [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateToDo(int id, [FromBody] ToDo todo)
+        // PUT: api/todo/update
+        [HttpPut("update")]
+        public async Task<IActionResult> UpdateToDo([FromBody] ToDo todo)
         {
-            if (id != todo.Id)
+            Console.WriteLine("in the controller");
+            var existingToDo = await _dailyCheckDbContext.ToDos.FindAsync(todo.Id);
+            if (existingToDo == null) // Vérifie si l'ancien To-Do existe
             {
-                return BadRequest("The ID provided does not match the ToDo item.");
-            }
+                Console.WriteLine("todo does not exist");
 
+                return NotFound("The To-Do item was not found.");
+            }
             if (!ModelState.IsValid)
             {
+                Console.WriteLine("modelstate is not valid");
+
                 return BadRequest(ModelState);
             }
 
             if (todo.Deadline < DateTime.Now)
             {
+                Console.WriteLine("deadline can not be in the past");
+
                 return BadRequest("The deadline cannot be in the past.");
             }
 
-            _dailyCheckDbContext.Entry(todo).State = EntityState.Modified;
+            existingToDo.Title = todo.Title;
+            existingToDo.Description = todo.Description;
+            existingToDo.Deadline = todo.Deadline;
+            Console.WriteLine("todo uptodated");
 
             try
             {
                 await _dailyCheckDbContext.SaveChangesAsync();
+                Console.WriteLine("todo uptodate saved");
+                return Ok(new { todo = todo });
             }
             catch (DbUpdateConcurrencyException)
             {
-                if (!ToDoExists(id))
+                Console.WriteLine("error");
+
+                if (!ToDoExists(todo.Id))
                 {
                     return NotFound();
                 }
@@ -170,24 +184,25 @@ namespace DailyCheckBackend.Controllers
                     throw;
                 }
             }
-
-            return NoContent();
         }
 
-        // DELETE: api/todo/{id}
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteToDo(int id)
+        [HttpDelete("delete")]
+        public async Task<IActionResult> DeleteToDo([FromBody] ToDo todo)
         {
-            var todo = await _dailyCheckDbContext.ToDos.FindAsync(id);
-            if (todo == null)
+            // Vérifie si l'ancien To-Do existe dans la base de données
+            var existingToDo = await _dailyCheckDbContext.ToDos.FindAsync(todo.Id);
+            if (existingToDo == null)
             {
-                return NotFound();
+                Console.WriteLine("The To-Do item was not found.");
+                return NotFound("The To-Do item was not found.");
             }
 
-            _dailyCheckDbContext.ToDos.Remove(todo);
+            // Supprime l'élément To-Do
+            _dailyCheckDbContext.ToDos.Remove(existingToDo);
             await _dailyCheckDbContext.SaveChangesAsync();
 
-            return NoContent();
+            Console.WriteLine($"To-Do with ID {todo.Id} deleted.");
+            return Ok(new { message = $"To-Do \"{todo.Title}\" deleted successfully!" });
         }
 
         private bool ToDoExists(int id)
