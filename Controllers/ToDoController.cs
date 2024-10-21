@@ -40,7 +40,7 @@ namespace DailyCheckBackend.Controllers
                 .ToListAsync(); // Convertir le résultat en liste
             if (todos.Count() == 0)
             {
-                return NotFound(new { message = "No upco;ingu; To-Dos found." }); // Réponse si vide
+                return NotFound(new { message = "No upcoming To-Dos found.", todos = todos }); // Réponse si vide
             }
             else
             {
@@ -57,6 +57,7 @@ namespace DailyCheckBackend.Controllers
                 .ToListAsync(); // Convertir le résultat en liste
             if (todos.Count() == 0)
             {
+                Console.WriteLine("no done todos");
                 return NotFound(new { message = "No done To-Dos found." }); // Réponse si vide
             }
             else
@@ -75,7 +76,7 @@ namespace DailyCheckBackend.Controllers
 
             if (todos.Count() == 0)
             {
-                return NotFound(new { message = "No cancelled To-Dos found." }); // Réponse si vide
+                return NotFound(new { message = "No cancelled To-Dos found.", todos = todos }); // Réponse si vide
             }
             else
             {
@@ -176,6 +177,97 @@ namespace DailyCheckBackend.Controllers
                 Console.WriteLine("error");
 
                 if (!ToDoExists(todo.Id))
+                {
+                    return NotFound();
+                }
+                else
+                {
+                    throw;
+                }
+            }
+        }
+
+        // PUT: api/todo/cancel
+        [HttpPut("cancel")]
+        public async Task<IActionResult> ChangeToDosStatusToCancelled([FromBody] int todoId)
+        {
+            var existingToDo = await _dailyCheckDbContext.ToDos.FindAsync(todoId);
+            if (existingToDo == null) // Vérifie si l'ancien To-Do existe
+            {
+                return NotFound("The To-Do item was not found.");
+            }
+            if (!ModelState.IsValid)
+            {
+                Console.WriteLine("modelstate is not valid");
+
+                return BadRequest(ModelState);
+            }
+            if (existingToDo.Status == Status.Cancelled)
+            {
+                return Ok(new { message = "To-Do item already cancelled" });
+            }
+
+            existingToDo.Status = Status.Cancelled;
+
+            Console.WriteLine("todo's status changed to cancelled");
+
+            try
+            {
+                await _dailyCheckDbContext.SaveChangesAsync();
+                Console.WriteLine("todo cancelled");
+                return Ok(new { todo = existingToDo });
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                Console.WriteLine("error");
+
+                if (!ToDoExists(todoId))
+                {
+                    return NotFound();
+                }
+                else
+                {
+                    throw;
+                }
+            }
+        }
+
+        // PUT: api/todo/done
+        [HttpPut("done")]
+        public async Task<IActionResult> ChangeToDosStatusToDone([FromBody] int todoId)
+        {
+            Console.WriteLine("in the controller");
+            var existingToDo = await _dailyCheckDbContext.ToDos.FindAsync(todoId);
+            if (existingToDo == null) // Vérifie si l'ancien To-Do existe
+            {
+                Console.WriteLine("todo does not exist");
+
+                return NotFound("The To-Do item was not found.");
+            }
+            if (!ModelState.IsValid)
+            {
+                Console.WriteLine("modelstate is not valid");
+
+                return BadRequest(ModelState);
+            }
+            if (existingToDo.Status == Status.Done)
+            {
+                return Ok(new { message = "To-Do item already done" });
+            }
+
+            existingToDo.Status = Status.Done;
+
+            try
+            {
+                await _dailyCheckDbContext.SaveChangesAsync();
+                Console.WriteLine("todo's status changed to done");
+                return Ok(new { todo = existingToDo });
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                Console.WriteLine("error");
+
+                if (!ToDoExists(todoId))
                 {
                     return NotFound();
                 }
