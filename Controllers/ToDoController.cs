@@ -16,27 +16,35 @@ namespace DailyCheckBackend.Controllers
             _dailyCheckDbContext = dailyCheckDbContext;
         }
 
-        // GET: api/todo/todos
-        [HttpGet("todos")]
-        public async Task<ActionResult<IEnumerable<ToDo>>> GetToDos()
+        // GET: api/todo/all-todos
+        [HttpPost("todos/all-todos")]
+        public async Task<ActionResult> GetToDos([FromBody] string userId)
         {
-            var todos = await _dailyCheckDbContext.ToDos.ToListAsync();
+            Console.WriteLine($"Received user ID: {userId}");
+
+            if (userId == null || string.IsNullOrEmpty(userId))
+            {
+                return BadRequest(new { message = "Invalid user data." });
+            }
+
+            var todos = await _dailyCheckDbContext
+                .ToDos.Where(t => t.UserId == userId)
+                .ToListAsync();
+
             if (todos.Count() == 0)
             {
-                return NotFound(new { message = "No To-Dos found." }); // Réponse si vide
+                return NotFound(new { message = "No To-Dos found.", todos = todos });
             }
-            else
-            {
-                return Ok(new { todos = todos }); // Retourner la liste des To-Dos à venir
-            }
+            Console.WriteLine("response is ok");
+            return Ok(new { todos = todos });
         }
 
-        [HttpGet("todos/upcoming")] // Point de terminaison pour obtenir les To-Dos à venir
-        public async Task<ActionResult<IEnumerable<ToDo>>> GetUpcomingToDos()
+        [HttpPost("todos/upcoming")] // Point de terminaison pour obtenir les To-Dos à venir
+        public async Task<ActionResult> GetUpcomingToDos([FromBody] string userId)
         {
             // Récupérer tous les To-Dos avec le statut Upcoming
             var todos = await _dailyCheckDbContext
-                .ToDos.Where(todo => todo.Status == Status.Upcoming) // Filtrer par statut
+                .ToDos.Where(todo => todo.Status == Status.Upcoming && todo.UserId == userId) // Filtrer par statut
                 .ToListAsync(); // Convertir le résultat en liste
             if (todos.Count() == 0)
             {
@@ -48,17 +56,17 @@ namespace DailyCheckBackend.Controllers
             }
         }
 
-        [HttpGet("todos/done")] // Point de terminaison pour obtenir les To-Dos à venir
-        public async Task<ActionResult<IEnumerable<ToDo>>> GetDoneToDos()
+        [HttpPost("todos/done")] // Point de terminaison pour obtenir les To-Dos à venir
+        public async Task<ActionResult> GetDoneToDos([FromBody] string userId)
         {
             // Récupérer tous les To-Dos avec le statut Upcoming
             var todos = await _dailyCheckDbContext
-                .ToDos.Where(todo => todo.Status == Status.Done) // Filtrer par statut
+                .ToDos.Where(todo => todo.Status == Status.Done && todo.UserId == userId) // Filtrer par statut
                 .ToListAsync(); // Convertir le résultat en liste
             if (todos.Count() == 0)
             {
                 Console.WriteLine("no done todos");
-                return NotFound(new { message = "No done To-Dos found." }); // Réponse si vide
+                return NotFound(new { message = "No done To-Dos found.", todos = todos }); // Réponse si vide
             }
             else
             {
@@ -66,12 +74,12 @@ namespace DailyCheckBackend.Controllers
             }
         }
 
-        [HttpGet("todos/cancelled")] // Point de terminaison pour obtenir les To-Dos à venir
-        public async Task<ActionResult<IEnumerable<ToDo>>> GetCancelledToDos()
+        [HttpPost("todos/cancelled")] // Point de terminaison pour obtenir les To-Dos à venir
+        public async Task<ActionResult> GetCancelledToDos([FromBody] string userId)
         {
             // Récupérer tous les To-Dos avec le statut Upcoming
             var todos = await _dailyCheckDbContext
-                .ToDos.Where(todo => todo.Status == Status.Cancelled) // Filtrer par statut
+                .ToDos.Where(todo => todo.Status == Status.Cancelled && todo.UserId == userId) // Filtrer par statut
                 .ToListAsync(); // Convertir le résultat en liste
 
             if (todos.Count() == 0)
@@ -118,7 +126,8 @@ namespace DailyCheckBackend.Controllers
 
             if (todo.Deadline < DateTime.Now)
             {
-                return BadRequest("The deadline cannot be in the past.");
+                Console.WriteLine("the deadline is in the past" + todo.Deadline);
+                return BadRequest(new { message = "The deadline cannot be in the past." });
             }
             var newToDo = new ToDo
             {
@@ -278,9 +287,10 @@ namespace DailyCheckBackend.Controllers
             }
         }
 
-        [HttpDelete("delete")]
+        [HttpDelete("todos/delete")]
         public async Task<IActionResult> DeleteToDo([FromBody] ToDo todo)
         {
+            Console.WriteLine("we're in the delete controller with:" + todo);
             // Vérifie si l'ancien To-Do existe dans la base de données
             var existingToDo = await _dailyCheckDbContext.ToDos.FindAsync(todo.Id);
             if (existingToDo == null)

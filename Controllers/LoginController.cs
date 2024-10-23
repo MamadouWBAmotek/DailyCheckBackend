@@ -151,7 +151,7 @@ namespace DailyCheckBackend.Controllers
                 var newGoogleUser = new GoogleUser
                 {
                     Id = googleOauthData.Id,
-                    Username = googleOauthData.Username,
+                    UserName = googleOauthData.Username,
                     Email = googleOauthData.Email,
                     Role =
                         Role.User // Assign the 'User' role
