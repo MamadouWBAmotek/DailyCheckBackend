@@ -145,10 +145,10 @@ namespace DailyCheckBackend.Controllers
         }
 
         // PUT: api/todo/update
-        [HttpPut("update")]
+        [HttpPut("todos/update")]
         public async Task<IActionResult> UpdateToDo([FromBody] ToDo todo)
         {
-            Console.WriteLine("in the controller");
+            Console.WriteLine("in the controller" + todo);
             var existingToDo = await _dailyCheckDbContext.ToDos.FindAsync(todo.Id);
             if (existingToDo == null) // Vérifie si l'ancien To-Do existe
             {
@@ -173,7 +173,6 @@ namespace DailyCheckBackend.Controllers
             existingToDo.Title = todo.Title;
             existingToDo.Description = todo.Description;
             existingToDo.Deadline = todo.Deadline;
-            Console.WriteLine("todo uptodated");
 
             try
             {
@@ -213,7 +212,7 @@ namespace DailyCheckBackend.Controllers
             }
             if (existingToDo.Status == Status.Cancelled)
             {
-                return Ok(new { message = "To-Do item already cancelled" });
+                return BadRequest(new { message = "To-Do item already cancelled" });
             }
 
             existingToDo.Status = Status.Cancelled;
