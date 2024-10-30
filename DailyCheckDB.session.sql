@@ -1,0 +1,1 @@
+delete from "Users" where "UserName"= 'Mamadou';

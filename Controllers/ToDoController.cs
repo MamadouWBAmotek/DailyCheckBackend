@@ -9,101 +9,60 @@ namespace DailyCheckBackend.Controllers
     [ApiController]
     public class ToDoController : ControllerBase
     {
+        private readonly ILogger<ToDoController> _logger;
         private readonly DailyCheckDbContext _dailyCheckDbContext;
 
-        public ToDoController(DailyCheckDbContext dailyCheckDbContext)
+        public ToDoController(
+            DailyCheckDbContext dailyCheckDbContext,
+            ILogger<ToDoController> logger
+        )
         {
+            _logger = logger;
             _dailyCheckDbContext = dailyCheckDbContext;
         }
 
         // GET: api/todo/all-todos
-        [HttpPost("todos/all-todos")]
-        public async Task<ActionResult> GetToDos([FromBody] string userId)
+        [HttpPost("todos")]
+        public async Task<ActionResult> GetToDos([FromBody] TodoRequest request)
         {
-            Console.WriteLine($"Received user ID: {userId}");
-
-            if (userId == null || string.IsNullOrEmpty(userId))
+            Console.WriteLine("this is the received object:" + request.Status);
+            if (string.IsNullOrEmpty(request.UserId))
             {
                 return BadRequest(new { message = "Invalid user data." });
             }
 
-            var todos = await _dailyCheckDbContext
-                .ToDos.Where(t => t.UserId == userId)
-                .ToListAsync();
+            IQueryable<ToDo> query = _dailyCheckDbContext.ToDos.Where(todo =>
+                todo.UserId == request.UserId
+            );
 
-            if (todos.Count() == 0)
+            // Filtrer par statut si spécifié
+            if (request.Status == Status.Upcoming)
             {
-                return NotFound(new { message = "No To-Dos found.", todos = todos });
+                query = query.Where(todo =>
+                    todo.Status == request.Status.Value && todo.UserId == request.UserId
+                );
             }
-            Console.WriteLine("response is ok");
-            return Ok(new { todos = todos });
-        }
-
-        [HttpPost("todos/upcoming")] // Point de terminaison pour obtenir les To-Dos à venir
-        public async Task<ActionResult> GetUpcomingToDos([FromBody] string userId)
-        {
-            // Récupérer tous les To-Dos avec le statut Upcoming
-            var todos = await _dailyCheckDbContext
-                .ToDos.Where(todo => todo.Status == Status.Upcoming && todo.UserId == userId) // Filtrer par statut
-                .ToListAsync(); // Convertir le résultat en liste
-            if (todos.Count() == 0)
+            else if (request.Status == Status.Done)
             {
-                return NotFound(new { message = "No upcoming To-Dos found.", todos = todos }); // Réponse si vide
+                query = query.Where(todo =>
+                    todo.Status == request.Status.Value && todo.UserId == request.UserId
+                );
             }
-            else
+            else if (request.Status == Status.Cancelled)
             {
-                return Ok(new { todos = todos }); // Retourner la liste des To-Dos à venir
-            }
-        }
-
-        [HttpPost("todos/done")] // Point de terminaison pour obtenir les To-Dos à venir
-        public async Task<ActionResult> GetDoneToDos([FromBody] string userId)
-        {
-            // Récupérer tous les To-Dos avec le statut Upcoming
-            var todos = await _dailyCheckDbContext
-                .ToDos.Where(todo => todo.Status == Status.Done && todo.UserId == userId) // Filtrer par statut
-                .ToListAsync(); // Convertir le résultat en liste
-            if (todos.Count() == 0)
-            {
-                Console.WriteLine("no done todos");
-                return NotFound(new { message = "No done To-Dos found.", todos = todos }); // Réponse si vide
-            }
-            else
-            {
-                return Ok(new { todos = todos }); // Retourner la liste des To-Dos à venir
-            }
-        }
-
-        [HttpPost("todos/cancelled")] // Point de terminaison pour obtenir les To-Dos à venir
-        public async Task<ActionResult> GetCancelledToDos([FromBody] string userId)
-        {
-            // Récupérer tous les To-Dos avec le statut Upcoming
-            var todos = await _dailyCheckDbContext
-                .ToDos.Where(todo => todo.Status == Status.Cancelled && todo.UserId == userId) // Filtrer par statut
-                .ToListAsync(); // Convertir le résultat en liste
-
-            if (todos.Count() == 0)
-            {
-                return NotFound(new { message = "No cancelled To-Dos found.", todos = todos }); // Réponse si vide
-            }
-            else
-            {
-                return Ok(new { todos = todos }); // Retourner la liste des To-Dos à venir
-            }
-        }
-
-        // GET: api/todo/{id}
-        [HttpGet("{id}")]
-        public async Task<ActionResult<ToDo>> GetToDoById(int id)
-        {
-            var todo = await _dailyCheckDbContext.ToDos.FindAsync(id);
-
-            if (todo == null)
-            {
-                return NotFound();
+                query = query.Where(todo =>
+                    todo.Status == request.Status.Value && todo.UserId == request.UserId
+                );
             }
 
-            return todo;
+            var todos = await query.ToListAsync();
+
+            if (todos.Count == 0)
+            {
+                return NotFound(new { message = $"No {request.Status} To-Dos found.", todos });
+            }
+
+            return Ok(new { todos });
         }
 
         // POST: api/todo/create
@@ -145,10 +104,10 @@ namespace DailyCheckBackend.Controllers
         }
 
         // PUT: api/todo/update
-        [HttpPut("todos/update")]
+        [HttpPut("update")]
         public async Task<IActionResult> UpdateToDo([FromBody] ToDo todo)
         {
-            Console.WriteLine("in the controller" + todo);
+            Console.WriteLine("in the controller" + todo.Status);
             var existingToDo = await _dailyCheckDbContext.ToDos.FindAsync(todo.Id);
             if (existingToDo == null) // Vérifie si l'ancien To-Do existe
             {
@@ -196,97 +155,55 @@ namespace DailyCheckBackend.Controllers
         }
 
         // PUT: api/todo/cancel
-        [HttpPut("cancel")]
-        public async Task<IActionResult> ChangeToDosStatusToCancelled([FromBody] int todoId)
+        [HttpPut("changestatus")]
+        public async Task<IActionResult> ChangeToDosStatus([FromBody] ChangeStatusRequest request)
         {
-            var existingToDo = await _dailyCheckDbContext.ToDos.FindAsync(todoId);
-            if (existingToDo == null) // Vérifie si l'ancien To-Do existe
+            _logger.LogInformation("Received request to change To-Do status: {@Request}", request);
+
+            var existingToDo = await _dailyCheckDbContext.ToDos.FindAsync(request.TodoId);
+
+            if (existingToDo == null)
             {
                 return NotFound("The To-Do item was not found.");
             }
+
             if (!ModelState.IsValid)
             {
-                Console.WriteLine("modelstate is not valid");
-
-                return BadRequest(ModelState);
+                _logger.LogWarning("Model state is invalid: {@ModelState}", ModelState);
+                return BadRequest(new { message = "Invalid data provided." });
             }
-            if (existingToDo.Status == Status.Cancelled)
+
+            if (existingToDo.Status == request.NewStatus)
             {
-                return BadRequest(new { message = "To-Do item already cancelled" });
+                return BadRequest(new { message = "To-Do item already has the specified status." });
             }
 
-            existingToDo.Status = Status.Cancelled;
-
-            Console.WriteLine("todo's status changed to cancelled");
+            existingToDo.Status = request.NewStatus;
 
             try
             {
                 await _dailyCheckDbContext.SaveChangesAsync();
-                Console.WriteLine("todo cancelled");
-                return Ok(new { todo = existingToDo });
+                _logger.LogInformation($"To-Do status changed to {request.NewStatus}");
+                return Ok(
+                    new { message = "To-Do status successfully changed.", todo = existingToDo }
+                );
             }
             catch (DbUpdateConcurrencyException)
             {
-                Console.WriteLine("error");
-
-                if (!ToDoExists(todoId))
+                _logger.LogError("Concurrency error occurred while updating To-Do.");
+                if (!ToDoExists(request.TodoId))
                 {
                     return NotFound();
                 }
                 else
                 {
-                    throw;
+                    throw; // Relance l'exception pour être gérée par le middleware global
                 }
             }
         }
 
-        // PUT: api/todo/done
-        [HttpPut("done")]
-        public async Task<IActionResult> ChangeToDosStatusToDone([FromBody] int todoId)
-        {
-            Console.WriteLine("in the controller");
-            var existingToDo = await _dailyCheckDbContext.ToDos.FindAsync(todoId);
-            if (existingToDo == null) // Vérifie si l'ancien To-Do existe
-            {
-                Console.WriteLine("todo does not exist");
-
-                return NotFound("The To-Do item was not found.");
-            }
-            if (!ModelState.IsValid)
-            {
-                Console.WriteLine("modelstate is not valid");
-
-                return BadRequest(ModelState);
-            }
-            if (existingToDo.Status == Status.Done)
-            {
-                return Ok(new { message = "To-Do item already done" });
-            }
-
-            existingToDo.Status = Status.Done;
-
-            try
-            {
-                await _dailyCheckDbContext.SaveChangesAsync();
-                Console.WriteLine("todo's status changed to done");
-                return Ok(new { todo = existingToDo });
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                Console.WriteLine("error");
-
-                if (!ToDoExists(todoId))
-                {
-                    return NotFound();
-                }
-                else
-                {
-                    throw;
-                }
-            }
-        }
-
-        [HttpDelete("todos/delete")]
+    
+        [HttpDelete("delete")]
         public async Task<IActionResult> DeleteToDo([FromBody] ToDo todo)
         {
             Console.WriteLine("we're in the delete controller with:" + todo);

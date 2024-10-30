@@ -24,8 +24,14 @@ namespace DailyCheckBackend.Controllers
         {
             if (ModelState.IsValid)
             {
+                var existingUser = _dailyCheckDbContext.Users.FirstOrDefault(u =>
+                    u.Email.ToLower().Trim() == model.Email.ToLower().Trim()
+                );
+                var existingGoogleUser = _dailyCheckDbContext.GoogleUsers.FirstOrDefault(u =>
+                    u.Email.ToLower().Trim() == model.Email.ToLower().Trim()
+                );
                 // Checking if Email already exists in the database
-                if (_dailyCheckDbContext.Users.Any(u => u.Email == model.Email))
+                if (existingUser != null || existingGoogleUser != null)
                 {
                     return BadRequest(new { message = "Login! u already have an account" });
                 }
@@ -45,7 +51,7 @@ namespace DailyCheckBackend.Controllers
                     // Add the new user to the database
                     _dailyCheckDbContext.Users.Add(user);
                     _dailyCheckDbContext.SaveChanges();
-                    return Ok(new { message = "User registered successfully." });
+                    return Ok(new { message = "User registered successfully.", user = user });
                 }
                 catch (DbUpdateException ex)
                 {
@@ -106,18 +112,20 @@ namespace DailyCheckBackend.Controllers
                     if (result == PasswordVerificationResult.Success)
                     {
                         // Authentication successful
-                        return Ok(new { message = "Login successful" });
+
+                        return Ok(new { message = "Login successful", user });
                     }
                     else
                     {
-                        // Password is incorrect
-                        return BadRequest(new { message = "Password is incorrect" });
+                        if (ModelState.IsValid)
+                            // Password is incorrect
+                            return BadRequest(new { message = "Password or Email is incorrect!" });
                     }
                 }
                 else
                 {
                     // User not found
-                    return BadRequest(new { message = "User was not found" });
+                    return BadRequest(new { message = "U don't have an account make one!" });
                 }
             }
 
@@ -145,7 +153,7 @@ namespace DailyCheckBackend.Controllers
                 .FirstOrDefaultAsync();
 
             // If no Google user exists and the email is not in the Users table
-            if (googleUser == null && user?.Email != googleOauthData.Email)
+            if (googleUser == null && user == null)
             {
                 // Create a new Google user
                 var newGoogleUser = new GoogleUser
@@ -159,20 +167,19 @@ namespace DailyCheckBackend.Controllers
                 };
                 _dailyCheckDbContext.GoogleUsers.Add(newGoogleUser);
                 _dailyCheckDbContext.SaveChanges();
-                return Ok(new { exists = false, user = newGoogleUser });
+                return Ok(new { exists = false, googleUser = newGoogleUser });
             }
-            else if (googleOauthData.Email == user?.Email)
-            {
-                // If it's a regular user, return that the email is already in use
 
-                return Ok(new { exists = false, user = user });
-            }
-            else
-            {
-                // If a Google user already exists
-                return Ok(new { exists = true, user = googleUser });
-            }
+            return Ok(
+                new
+                {
+                    exists = true,
+                    user = user,
+                    googleUser = googleUser,
+                }
+            );
         }
+        
 
         [HttpPost("logout")]
         public async Task<IActionResult> Logout()

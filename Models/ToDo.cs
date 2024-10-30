@@ -17,7 +17,7 @@ namespace DailyCheckBackend.Models
         public Status Status { get; set; }
 
         [Required]
-        public string UserId { get; set; }
+        public required string UserId { get; set; }
 
         [Required]
         public DateTime Deadline { get; set; }
