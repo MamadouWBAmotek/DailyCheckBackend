@@ -1,1 +1,1 @@
-delete from "Users" where "UserName"= 'Mamadou';
+delete * from "ToDos" where "UserName"= 'Mamadou';

@@ -43,7 +43,7 @@ namespace DailyCheckBackend.Controllers
                     Email = model.Email,
                     UserName = model.UserName,
                     Password = passwordHasher.HashPassword(null, model.Password), // Hashing the password
-                    Role = Role.User,
+                    Role = model.Role ?? Role.User,
                 };
 
                 try
@@ -51,7 +51,7 @@ namespace DailyCheckBackend.Controllers
                     // Add the new user to the database
                     _dailyCheckDbContext.Users.Add(user);
                     _dailyCheckDbContext.SaveChanges();
-                    return Ok(new { message = "User registered successfully.", user = user });
+                    return Ok(new { message = "User registered successfully.", user });
                 }
                 catch (DbUpdateException ex)
                 {
@@ -179,13 +179,96 @@ namespace DailyCheckBackend.Controllers
                 }
             );
         }
-        
 
-        [HttpPost("logout")]
-        public async Task<IActionResult> Logout()
+        [HttpGet("users")]
+        public IActionResult GetAllUsers()
         {
-            await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
-            return Ok(new { message = "User logged out successfully." });
+            var users = _dailyCheckDbContext.Users.ToList();
+            var googleUsers = _dailyCheckDbContext.GoogleUsers.ToList();
+            // users+=_dailyCheckDbContext.GoogleUsers.ToList();
+            return Ok(new { users, googleUsers });
+        }
+
+        // GET: api/login/user/{id}
+        [HttpGet("users/user")]
+        public IActionResult GetUserById(string id)
+        {
+            var user = _dailyCheckDbContext.Users.Find(Convert.ToInt32(id));
+
+            var googleUserId = Convert.ToString(id);
+            var googleUser = _dailyCheckDbContext.GoogleUsers.Find(googleUserId);
+            if (user == null && googleUser == null)
+            {
+                return NotFound(new { message = "User not found." });
+            }
+            else if (user != null)
+            {
+                return Ok(user);
+            }
+            else
+            {
+                return Ok(googleUser);
+            }
+        }
+
+        // PUT: api/login/user/{id}
+        [HttpPut("update")]
+        public IActionResult UpdateUser([FromBody] User model)
+        {
+            var user = _dailyCheckDbContext.Users.Find(model.Id);
+            var googleUserId = Convert.ToString(model.Id);
+            var googleUser = _dailyCheckDbContext.GoogleUsers.Find(googleUserId);
+
+            if (user == null && googleUser == null)
+            {
+                return NotFound(new { message = "User not found." });
+            }
+            else if (user != null)
+            {
+                user.UserName = model.UserName ?? user.UserName;
+                user.Email = model.Email ?? user.Email;
+                user.Role = model.Role;
+
+                _dailyCheckDbContext.SaveChanges();
+                return Ok(new { message = "User updated successfully.", user });
+            }
+            else
+            {
+                googleUser.UserName = model.UserName ?? googleUser.UserName;
+                googleUser.Email = model.Email ?? googleUser.Email;
+                googleUser.Role = model.Role;
+                _dailyCheckDbContext.SaveChanges();
+                return Ok(new { message = "User updated successfully.", googleUser });
+            }
+        }
+
+        public class DeleteUserRequest
+        {
+            public string? userId { get; set; }
+        }
+
+        [HttpDelete("delete")]
+        public IActionResult DeleteUser([FromBody] DeleteUserRequest request)
+        {
+         
+
+            var googleUser = _dailyCheckDbContext.GoogleUsers.FirstOrDefault(gu =>
+                gu.Id == request.userId
+            );
+            if (googleUser == null)
+            {
+                var usersId = Convert.ToInt32(request.userId);
+                var user = _dailyCheckDbContext.Users.FirstOrDefault(u => u.Id == usersId);
+                if (user != null)
+                    _dailyCheckDbContext.Users.Remove(user);
+                _dailyCheckDbContext.SaveChanges();
+                return Ok(new { message = "User deleted successfully." });
+            }
+            if (googleUser != null)
+                _dailyCheckDbContext.GoogleUsers.Remove(googleUser);
+            _dailyCheckDbContext.SaveChanges();
+
+            return Ok(new { message = "User deleted successfully." });
         }
     }
 }

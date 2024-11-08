@@ -17,6 +17,9 @@ namespace DailyCheckBackend.Models
         public Status Status { get; set; }
 
         [Required]
+        public required string UserEmail { get; set; }
+
+        [Required]
         public required string UserId { get; set; }
 
         [Required]

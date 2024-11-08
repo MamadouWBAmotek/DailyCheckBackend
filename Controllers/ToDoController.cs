@@ -25,7 +25,6 @@ namespace DailyCheckBackend.Controllers
         [HttpPost("todos")]
         public async Task<ActionResult> GetToDos([FromBody] TodoRequest request)
         {
-            Console.WriteLine("this is the received object:" + request.Status);
             if (string.IsNullOrEmpty(request.UserId))
             {
                 return BadRequest(new { message = "Invalid user data." });
@@ -34,45 +33,77 @@ namespace DailyCheckBackend.Controllers
             IQueryable<ToDo> query = _dailyCheckDbContext.ToDos.Where(todo =>
                 todo.UserId == request.UserId
             );
-
+            IQueryable<ToDo> queryAll = _dailyCheckDbContext.ToDos;
+            if (request.UserStatus == Role.Admin)
+            {
+                if (request.Status == Status.Upcoming)
+                {
+                    query = query.Where(todo =>
+                        todo.Status == request.Status.Value && todo.UserId == request.UserId
+                    );
+                    queryAll = queryAll.Where(todo => todo.Status == request.Status.Value);
+                }
+                else if (request.Status == Status.Done)
+                {
+                    query = query.Where(todo =>
+                        todo.Status == request.Status.Value && todo.UserId == request.UserId
+                    );
+                    queryAll = queryAll.Where(todo => todo.Status == request.Status.Value);
+                }
+                else if (request.Status == Status.Cancelled)
+                {
+                    query = query.Where(todo =>
+                        todo.Status == request.Status.Value && todo.UserId == request.UserId
+                    );
+                    queryAll = queryAll.Where(todo => todo.Status == request.Status.Value);
+                }
+            }
+            else
+            {
+                if (request.Status == Status.Upcoming)
+                {
+                    query = query.Where(todo =>
+                        todo.Status == request.Status.Value && todo.UserId == request.UserId
+                    );
+                }
+                else if (request.Status == Status.Done)
+                {
+                    query = query.Where(todo =>
+                        todo.Status == request.Status.Value && todo.UserId == request.UserId
+                    );
+                }
+                else if (request.Status == Status.Cancelled)
+                {
+                    query = query.Where(todo =>
+                        todo.Status == request.Status.Value && todo.UserId == request.UserId
+                    );
+                }
+            }
             // Filtrer par statut si spécifié
-            if (request.Status == Status.Upcoming)
-            {
-                query = query.Where(todo =>
-                    todo.Status == request.Status.Value && todo.UserId == request.UserId
-                );
-            }
-            else if (request.Status == Status.Done)
-            {
-                query = query.Where(todo =>
-                    todo.Status == request.Status.Value && todo.UserId == request.UserId
-                );
-            }
-            else if (request.Status == Status.Cancelled)
-            {
-                query = query.Where(todo =>
-                    todo.Status == request.Status.Value && todo.UserId == request.UserId
-                );
-            }
 
-            var todos = await query.ToListAsync();
+            var usersTodos = await query.ToListAsync();
+            var todos = await queryAll.ToListAsync();
 
             if (todos.Count == 0)
             {
-                return NotFound(new { message = $"No {request.Status} To-Dos found.", todos });
+                return NotFound(
+                    new
+                    {
+                        message = $"No {request.Status} To-Dos found.",
+                        todos,
+                        usersTodos,
+                    }
+                );
             }
 
-            return Ok(new { todos });
+            return Ok(new { todos, usersTodos });
         }
 
         // POST: api/todo/create
         [HttpPost("create")]
         public async Task<ActionResult> CreateToDo([FromBody] ToDo todo)
         {
-            Console.WriteLine(
-                $"Received: {todo.Title}, {todo.Description}, {todo.Deadline}, {todo.UserId}"
-            );
-
+            Console.WriteLine("we are in the controller");
             if (todo == null)
             {
                 return BadRequest("ToDo cannot be null.");
@@ -93,13 +124,13 @@ namespace DailyCheckBackend.Controllers
                 Title = todo.Title,
                 Description = todo.Description,
                 Status = Status.Upcoming, // Default status if not provided
-                UserId = todo.UserId,
+                UserEmail = todo.UserEmail,
+                UserId=todo.UserId,
                 Deadline = todo.Deadline,
             };
 
             _dailyCheckDbContext.ToDos.Add(newToDo);
             await _dailyCheckDbContext.SaveChangesAsync();
-            Console.WriteLine("this is the controller");
             return Ok(new { todo = newToDo });
         }
 
@@ -107,7 +138,6 @@ namespace DailyCheckBackend.Controllers
         [HttpPut("update")]
         public async Task<IActionResult> UpdateToDo([FromBody] ToDo todo)
         {
-            Console.WriteLine("in the controller" + todo.Status);
             var existingToDo = await _dailyCheckDbContext.ToDos.FindAsync(todo.Id);
             if (existingToDo == null) // Vérifie si l'ancien To-Do existe
             {
@@ -202,11 +232,9 @@ namespace DailyCheckBackend.Controllers
             }
         }
 
-    
         [HttpDelete("delete")]
         public async Task<IActionResult> DeleteToDo([FromBody] ToDo todo)
         {
-            Console.WriteLine("we're in the delete controller with:" + todo);
             // Vérifie si l'ancien To-Do existe dans la base de données
             var existingToDo = await _dailyCheckDbContext.ToDos.FindAsync(todo.Id);
             if (existingToDo == null)
