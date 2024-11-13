@@ -225,20 +225,39 @@ namespace DailyCheckBackend.Controllers
             }
             else if (user != null)
             {
+                if (user.Email != model.Email)
+                {
+                    var newUserByEmail = _dailyCheckDbContext.Users.FirstOrDefault(u =>
+                        u.Email == model.Email
+                    );
+                    if (newUserByEmail != null)
+                    {
+                        return BadRequest(new { message = "Email already in use!" });
+                    }
+                }
                 user.UserName = model.UserName ?? user.UserName;
                 user.Email = model.Email ?? user.Email;
                 user.Role = model.Role;
-
                 _dailyCheckDbContext.SaveChanges();
                 return Ok(new { message = "User updated successfully.", user });
             }
             else
             {
+                if (googleUser.Email != model.Email)
+                {
+                    var newGoogleUserByEmail = _dailyCheckDbContext.GoogleUsers.FirstOrDefault(u =>
+                        u.Email == model.Email
+                    );
+                    if (newGoogleUserByEmail != null)
+                    {
+                        return BadRequest(new { message = "Email already in use!" });
+                    }
+                }
                 googleUser.UserName = model.UserName ?? googleUser.UserName;
                 googleUser.Email = model.Email ?? googleUser.Email;
                 googleUser.Role = model.Role;
                 _dailyCheckDbContext.SaveChanges();
-                return Ok(new { message = "User updated successfully.", googleUser });
+                return Ok(new { message = "User updated succesfully.", googleUser });
             }
         }
 
@@ -250,8 +269,6 @@ namespace DailyCheckBackend.Controllers
         [HttpDelete("delete")]
         public IActionResult DeleteUser([FromBody] DeleteUserRequest request)
         {
-         
-
             var googleUser = _dailyCheckDbContext.GoogleUsers.FirstOrDefault(gu =>
                 gu.Id == request.userId
             );

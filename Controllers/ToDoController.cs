@@ -84,7 +84,7 @@ namespace DailyCheckBackend.Controllers
             var usersTodos = await query.ToListAsync();
             var todos = await queryAll.ToListAsync();
 
-            if (todos.Count == 0)
+            if (todos.Count == 0 && usersTodos.Count == 0)
             {
                 return NotFound(
                     new
@@ -103,7 +103,6 @@ namespace DailyCheckBackend.Controllers
         [HttpPost("create")]
         public async Task<ActionResult> CreateToDo([FromBody] ToDo todo)
         {
-            Console.WriteLine("we are in the controller");
             if (todo == null)
             {
                 return BadRequest("ToDo cannot be null.");
@@ -116,7 +115,6 @@ namespace DailyCheckBackend.Controllers
 
             if (todo.Deadline < DateTime.Now)
             {
-                Console.WriteLine("the deadline is in the past" + todo.Deadline);
                 return BadRequest(new { message = "The deadline cannot be in the past." });
             }
             var newToDo = new ToDo
@@ -125,7 +123,7 @@ namespace DailyCheckBackend.Controllers
                 Description = todo.Description,
                 Status = Status.Upcoming, // Default status if not provided
                 UserEmail = todo.UserEmail,
-                UserId=todo.UserId,
+                UserId = todo.UserId,
                 Deadline = todo.Deadline,
             };
 
@@ -166,7 +164,6 @@ namespace DailyCheckBackend.Controllers
             try
             {
                 await _dailyCheckDbContext.SaveChangesAsync();
-                Console.WriteLine("todo uptodate saved");
                 return Ok(new { todo = todo });
             }
             catch (DbUpdateConcurrencyException)

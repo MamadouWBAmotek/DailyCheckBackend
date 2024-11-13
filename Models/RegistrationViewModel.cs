@@ -23,7 +23,6 @@ namespace DailyCheckBackend.Models
         [DataType(DataType.Password)]
         public required string ConfirmPassword { get; set; }
 
-        [Required]
         public Role? Role { get; set; }
 
     }
