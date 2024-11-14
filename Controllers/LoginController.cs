@@ -215,10 +215,10 @@ namespace DailyCheckBackend.Controllers
         [HttpPut("update")]
         public IActionResult UpdateUser([FromBody] User model)
         {
+            // Console.WriteLine("this is the model" + model.Email);
             var user = _dailyCheckDbContext.Users.Find(model.Id);
             var googleUserId = Convert.ToString(model.Id);
             var googleUser = _dailyCheckDbContext.GoogleUsers.Find(googleUserId);
-
             if (user == null && googleUser == null)
             {
                 return NotFound(new { message = "User not found." });
@@ -259,6 +259,44 @@ namespace DailyCheckBackend.Controllers
                 _dailyCheckDbContext.SaveChanges();
                 return Ok(new { message = "User updated succesfully.", googleUser });
             }
+        }
+
+        // PUT: api/login/user/{id}
+        [HttpPut("mainuser/update")]
+        public IActionResult UpdateMainUser([FromBody] UserUpdateViewModel model)
+        {
+            var user = _dailyCheckDbContext.Users.Find(model.Id);
+            if (user != null && model.Password.Length <= 0)
+            {
+                if (user.Email != model.Email)
+                {
+                    var newUserByEmail = _dailyCheckDbContext.Users.FirstOrDefault(u =>
+                        u.Email == model.Email
+                    );
+                    if (newUserByEmail != null)
+                    {
+                        return BadRequest(new { message = "Email already in use!" });
+                    }
+                }
+                user.UserName = model.UserName ?? user.UserName;
+                user.Email = model.Email ?? user.Email;
+                _dailyCheckDbContext.SaveChanges();
+                return Ok(new { message = "User updated successfully.", user });
+            }
+            var passwordHasher = new PasswordHasher<User>();
+
+            var result = passwordHasher.VerifyHashedPassword(user, user.Password, model.Password);
+            if (result == PasswordVerificationResult.Success)
+            {
+                user.Password = model.NewPassword;
+                return Ok(new { message = "The password is correct" });
+            }
+            else if (result == PasswordVerificationResult.Failed)
+            {
+                Console.WriteLine("the password is incorrect");
+                return BadRequest(new { message = "The password is incorrect!" });
+            }
+            return Ok();
         }
 
         public class DeleteUserRequest
