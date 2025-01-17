@@ -32,77 +32,110 @@ namespace DailyCheckBackend.Controllers
 
             IQueryable<ToDo> query = _dailyCheckDbContext.ToDos.Where(todo =>
                 todo.UserId == request.UserId
+            //  && todo.Status == Status.Upcoming
             );
-            IQueryable<ToDo> queryAll = _dailyCheckDbContext.ToDos;
-            if (request.UserStatus == Role.Admin)
+            IQueryable<ToDo> queryAll = _dailyCheckDbContext.ToDos.Where(todo =>
+                todo.UserId == request.UserId
+            );
+
+            // if (request.UserStatus == Role.Admin)
+            // {
+            //     if (request.Status == Status.Upcoming || request.Status == null)
+            //     {
+            //         query = query.Where(todo =>
+            //             todo.Status == Status.Upcoming && todo.UserId == request.UserId
+            //         );
+            //         queryAll = queryAll.Where(todo => todo.Status == Status.Upcoming);
+            //     }
+            //     else if (request.Status == Status.Done)
+            //     {
+            //         query = query.Where(todo =>
+            //             todo.Status == request.Status.Value && todo.UserId == request.UserId
+            //         );
+            //         queryAll = queryAll.Where(todo => todo.Status == request.Status.Value);
+            //     }
+            //     else if (request.Status == Status.Cancelled)
+            //     {
+            //         query = query.Where(todo =>
+            //             todo.Status == request.Status.Value && todo.UserId == request.UserId
+            //         );
+            //         queryAll = queryAll.Where(todo => todo.Status == request.Status.Value);
+            //     }
+            //     else if (request.Status == Status.Expired)
+            //     {
+            //         query = query.Where(todo =>
+            //             todo.Status == request.Status.Value && todo.UserId == request.UserId
+            //         );
+            //         queryAll = queryAll.Where(todo => todo.Status == request.Status.Value);
+            //     }
+            //     else if (request.Status == Status.All)
+            //     {
+            //         query = _dailyCheckDbContext.ToDos.Where(todo => todo.UserId == request.UserId);
+            //         queryAll = _dailyCheckDbContext.ToDos;
+            //     }
+            // }
+
+            // else
+            // {
+            if (request.Status == Status.Upcoming || request.Status == null)
             {
-                if (request.Status == Status.Upcoming)
-                {
-                    query = query.Where(todo =>
-                        todo.Status == request.Status.Value && todo.UserId == request.UserId
-                    );
-                    queryAll = queryAll.Where(todo => todo.Status == request.Status.Value);
-                }
-                else if (request.Status == Status.Done)
-                {
-                    query = query.Where(todo =>
-                        todo.Status == request.Status.Value && todo.UserId == request.UserId
-                    );
-                    queryAll = queryAll.Where(todo => todo.Status == request.Status.Value);
-                }
-                else if (request.Status == Status.Cancelled)
-                {
-                    query = query.Where(todo =>
-                        todo.Status == request.Status.Value && todo.UserId == request.UserId
-                    );
-                    queryAll = queryAll.Where(todo => todo.Status == request.Status.Value);
-                }
+                query = query.Where(todo =>
+                    todo.Status == Status.Upcoming && todo.UserId == request.UserId
+                );
             }
-            else
+            else if (request.Status == Status.Done)
             {
-                if (request.Status == Status.Upcoming)
-                {
-                    query = query.Where(todo =>
-                        todo.Status == request.Status.Value && todo.UserId == request.UserId
-                    );
-                }
-                else if (request.Status == Status.Done)
-                {
-                    query = query.Where(todo =>
-                        todo.Status == request.Status.Value && todo.UserId == request.UserId
-                    );
-                }
-                else if (request.Status == Status.Cancelled)
-                {
-                    query = query.Where(todo =>
-                        todo.Status == request.Status.Value && todo.UserId == request.UserId
-                    );
-                }
+                query = query.Where(todo =>
+                    todo.Status == request.Status.Value && todo.UserId == request.UserId
+                );
             }
+            else if (request.Status == Status.Cancelled)
+            {
+                query = query.Where(todo =>
+                    todo.Status == request.Status.Value && todo.UserId == request.UserId
+                );
+            }
+            else if (request.Status == Status.All)
+            {
+                query = query.Where(todo => todo.UserId == request.UserId);
+            }
+            else if (request.Status == Status.Expired)
+            {
+                query = query.Where(todo =>
+                    todo.Status == request.Status.Value && todo.UserId == request.UserId
+                );
+            }
+            // }
             // Filtrer par statut si spécifié
 
             var usersTodos = await query.ToListAsync();
-            var todos = await queryAll.ToListAsync();
-
-            if (todos.Count == 0 && usersTodos.Count == 0)
+            foreach (var todo in usersTodos)
             {
-                return NotFound(
-                    new
-                    {
-                        message = $"No {request.Status} To-Dos found.",
-                        todos,
-                        usersTodos,
-                    }
-                );
+                todo.Deadline = todo.Deadline.ToLocalTime();
             }
+            var allUsersTodos = await queryAll.ToListAsync();
 
-            return Ok(new { todos, usersTodos });
+            // var todos = await queryAll.ToListAsync();
+
+            // if (todos.Count == 0)
+            // {
+            //     return NotFound(new { message = $"No {request.Status} To-Dos found.", todos });
+            // }
+            // else if (usersTodos.Count == 0)
+            // {
+            //     return NotFound(new { message = $"No {request.Status} To-Dos found.", usersTodos });
+            // }
+
+            return Ok(new { usersTodos, usersTotalTodos = allUsersTodos.Count });
         }
 
         // POST: api/todo/create
         [HttpPost("create")]
         public async Task<ActionResult> CreateToDo([FromBody] ToDo todo)
         {
+            Console.Write("this is the dtaa we got from the frontend");
+            Console.WriteLine(todo.Deadline);
+
             if (todo == null)
             {
                 return BadRequest("ToDo cannot be null.");
@@ -112,8 +145,9 @@ namespace DailyCheckBackend.Controllers
             {
                 return BadRequest(ModelState);
             }
+            Console.WriteLine("todos deadline" + todo.Deadline.ToLocalTime());
 
-            if (todo.Deadline < DateTime.Now)
+            if (todo.Deadline.ToLocalTime() < DateTime.Now)
             {
                 return BadRequest(new { message = "The deadline cannot be in the past." });
             }
@@ -121,12 +155,11 @@ namespace DailyCheckBackend.Controllers
             {
                 Title = todo.Title,
                 Description = todo.Description,
-                Status = Status.Upcoming, // Default status if not provided
+                Status = Status.Upcoming,
                 UserEmail = todo.UserEmail,
                 UserId = todo.UserId,
                 Deadline = todo.Deadline,
             };
-
             _dailyCheckDbContext.ToDos.Add(newToDo);
             await _dailyCheckDbContext.SaveChangesAsync();
             return Ok(new { todo = newToDo });
@@ -150,11 +183,11 @@ namespace DailyCheckBackend.Controllers
                 return BadRequest(ModelState);
             }
 
-            if (todo.Deadline < DateTime.Now)
+            if (todo.Status != Status.Expired && todo.Deadline < DateTime.Now)
             {
                 Console.WriteLine("deadline can not be in the past");
 
-                return BadRequest("The deadline cannot be in the past.");
+                return BadRequest(new { message = "The deadline cannot be in the past." });
             }
 
             existingToDo.Title = todo.Title;

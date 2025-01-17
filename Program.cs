@@ -9,44 +9,57 @@ internal class Program
     {
         var builder = WebApplication.CreateBuilder(args);
 
-        // Ajout des services au conteneur.
-        builder.Services.AddAuthentication(options =>
-        {
-            options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
-            options.DefaultChallengeScheme = GoogleDefaults.AuthenticationScheme;
-        })
-        .AddCookie(options =>
-        {
-            options.LoginPath = "/login";
-        })
-        .AddGoogle(GoogleDefaults.AuthenticationScheme, options =>
-        {
-            options.ClientId = builder.Configuration.GetSection("GoogleKeys:ClientId").Value;
-            options.ClientSecret = builder.Configuration.GetSection("GoogleKeys:ClientSecret").Value;
-        });
+        builder
+            .Services.AddAuthentication(options =>
+            {
+                options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+                options.DefaultChallengeScheme = GoogleDefaults.AuthenticationScheme;
+            })
+            .AddCookie(options =>
+            {
+                options.LoginPath = "/login";
+            })
+            .AddGoogle(
+                GoogleDefaults.AuthenticationScheme,
+                options =>
+                {
+                    {
+                        var clientId = builder
+                            .Configuration.GetSection("GoogleKeys:ClientId")
+                            .Value;
+                        var clientSecret = builder
+                            .Configuration.GetSection("GoogleKeys:ClientSecret")
+                            .Value;
 
-        // Configuration de la session
-        // builder.Services.AddSession(options =>
-        // {
-        //     options.IdleTimeout = TimeSpan.FromMinutes(30); // Durée d'inactivité avant expiration
-        //     options.Cookie.HttpOnly = true; // Cookies accessibles uniquement par le serveur
-        //     options.Cookie.IsEssential = true; // Cookie essentiel
-        // });
+                        if (string.IsNullOrEmpty(clientId) || string.IsNullOrEmpty(clientSecret))
+                        {
+                            throw new InvalidOperationException(
+                                "Les clés ClientId et ClientSecret sont manquantes dans la configuration."
+                            );
+                        }
+
+                        options.ClientId = clientId;
+                        options.ClientSecret = clientSecret;
+                    }
+                }
+            );
 
         builder.Services.AddControllers();
         builder.Services.AddDbContext<DailyCheckDbContext>(o =>
-            o.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+            o.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"))
+        );
 
         builder.Services.AddEndpointsApiExplorer();
         builder.Services.AddSwaggerGen();
         builder.Services.AddCors(options =>
         {
-            options.AddPolicy("AllowAll", policy =>
-            {
-                policy.AllowAnyOrigin()
-                      .AllowAnyMethod()
-                      .AllowAnyHeader();
-            });
+            options.AddPolicy(
+                "AllowAll",
+                policy =>
+                {
+                    policy.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader();
+                }
+            );
         });
 
         var app = builder.Build();
@@ -62,7 +75,6 @@ internal class Program
             app.UseHttpsRedirection();
         }
 
-
         app.UseCors("AllowAll");
 
         // app.UseSession(); // Assurez-vous que UseSession est avant UseAuthorization
@@ -73,31 +85,43 @@ internal class Program
         app.MapControllers();
 
         // Exemple de point de terminaison
-        var summaries = new[]
-        {
-            "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-        };
+        // var summaries = new[]
+        // {
+        //     "Freezing",
+        //     "Bracing",
+        //     "Chilly",
+        //     "Cool",
+        //     "Mild",
+        //     "Warm",
+        //     "Balmy",
+        //     "Hot",
+        //     "Sweltering",
+        //     "Scorching",
+        // };
 
-        app.MapGet("/weatherforecast", () =>
-        {
-            var forecast = Enumerable.Range(1, 5).Select(index =>
-                new WeatherForecast
-                (
-                    DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-                    Random.Shared.Next(-20, 55),
-                    summaries[Random.Shared.Next(summaries.Length)]
-                ))
-                .ToArray();
-            return forecast;
-        })
-        .WithName("GetWeatherForecast")
-        .WithOpenApi();
+        // app.MapGet(
+        //         "/weatherforecast",
+        //         () =>
+        //         {
+        //             var forecast = Enumerable
+        //                 .Range(1, 5)
+        //                 .Select(index => new WeatherForecast(
+        //                     DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
+        //                     Random.Shared.Next(-20, 55),
+        //                     summaries[Random.Shared.Next(summaries.Length)]
+        //                 ))
+        //                 .ToArray();
+        //             return forecast;
+        //         }
+        //     )
+        //     .WithName("GetWeatherForecast")
+        //     .WithOpenApi();
 
         app.Run();
     }
 }
 
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}
+// record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
+// {
+//     public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
+// }

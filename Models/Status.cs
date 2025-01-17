@@ -5,5 +5,7 @@ namespace DailyCheckBackend.Models
         Done,
         Cancelled,
         Upcoming,
+        Expired,
+        All,
     }
 }

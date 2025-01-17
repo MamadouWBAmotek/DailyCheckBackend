@@ -5,7 +5,6 @@ namespace DailyCheckBackend.Models
 {
     public class ToDoViewModel
     {
-        
         public required string Title { get; set; }
         public required string Description { get; set; }
         public required Status Status { get; set; }
@@ -13,4 +12,3 @@ namespace DailyCheckBackend.Models
         public required DateTime Deadline { get; set; }
     }
 }
-

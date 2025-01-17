@@ -1,6 +1,4 @@
 using DailyCheckBackend.Models;
-using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -20,7 +18,7 @@ namespace DailyCheckBackend.Controllers
 
         // POST: api/login/register
         [HttpPost("register")]
-        public IActionResult Registration([FromBody] RegistrationViewModel model)
+        public async Task<IActionResult> Registration([FromBody] RegistrationViewModel model)
         {
             if (ModelState.IsValid)
             {
@@ -50,7 +48,7 @@ namespace DailyCheckBackend.Controllers
                 {
                     // Add the new user to the database
                     _dailyCheckDbContext.Users.Add(user);
-                    _dailyCheckDbContext.SaveChanges();
+                    await _dailyCheckDbContext.SaveChangesAsync();
                     return Ok(new { message = "User registered successfully.", user });
                 }
                 catch (DbUpdateException ex)
@@ -152,7 +150,37 @@ namespace DailyCheckBackend.Controllers
                 .GoogleUsers.Where(u => u.Email == googleOauthData.Email)
                 .FirstOrDefaultAsync();
 
-            // If no Google user exists and the email is not in the Users table
+            // If user  does not exists in db
+            if (googleUser == null && user == null)
+            {
+                return NotFound(new { message = "You do not have an account yet!" });
+            }
+            if (user == null)
+            {
+                return Ok(new { exists = true, googleUser });
+            }
+            return Ok(new { exists = true, user });
+        }
+
+        [HttpPost("signupwithgoogle")]
+        public async Task<IActionResult> SignUpGoogle(
+            [FromBody] loginWithGoogleViewModel googleOauthData
+        )
+        {
+            if (googleOauthData == null || string.IsNullOrEmpty(googleOauthData.Email))
+            {
+                // No email provided in the request
+                return BadRequest("Email not provided.");
+            }
+
+            var user = await _dailyCheckDbContext
+                .Users.Where(u => u.Email == googleOauthData.Email)
+                .FirstOrDefaultAsync();
+
+            var googleUser = await _dailyCheckDbContext
+                .GoogleUsers.Where(u => u.Email == googleOauthData.Email)
+                .FirstOrDefaultAsync();
+
             if (googleUser == null && user == null)
             {
                 // Create a new Google user
@@ -166,18 +194,11 @@ namespace DailyCheckBackend.Controllers
                     ,
                 };
                 _dailyCheckDbContext.GoogleUsers.Add(newGoogleUser);
-                _dailyCheckDbContext.SaveChanges();
-                return Ok(new { exists = false, googleUser = newGoogleUser });
+                await _dailyCheckDbContext.SaveChangesAsync();
+                return Ok(new { newGoogleUser });
             }
 
-            return Ok(
-                new
-                {
-                    exists = true,
-                    user = user,
-                    googleUser = googleUser,
-                }
-            );
+            return BadRequest(new { message = "Your already have an account! " });
         }
 
         [HttpGet("users")]
@@ -185,7 +206,6 @@ namespace DailyCheckBackend.Controllers
         {
             var users = _dailyCheckDbContext.Users.ToList();
             var googleUsers = _dailyCheckDbContext.GoogleUsers.ToList();
-            // users+=_dailyCheckDbContext.GoogleUsers.ToList();
             return Ok(new { users, googleUsers });
         }
 
@@ -213,7 +233,7 @@ namespace DailyCheckBackend.Controllers
 
         // PUT: api/login/user/{id}
         [HttpPut("update")]
-        public IActionResult UpdateUser([FromBody] User model)
+        public async Task<IActionResult> UpdateUser([FromBody] User model)
         {
             // Console.WriteLine("this is the model" + model.Email);
             var user = _dailyCheckDbContext.Users.Find(model.Id);
@@ -238,12 +258,12 @@ namespace DailyCheckBackend.Controllers
                 user.UserName = model.UserName ?? user.UserName;
                 user.Email = model.Email ?? user.Email;
                 user.Role = model.Role;
-                _dailyCheckDbContext.SaveChanges();
+                await _dailyCheckDbContext.SaveChangesAsync();
                 return Ok(new { message = "User updated successfully.", user });
             }
             else
             {
-                if (googleUser.Email != model.Email)
+                if (googleUser?.Email != model.Email)
                 {
                     var newGoogleUserByEmail = _dailyCheckDbContext.GoogleUsers.FirstOrDefault(u =>
                         u.Email == model.Email
@@ -253,17 +273,21 @@ namespace DailyCheckBackend.Controllers
                         return BadRequest(new { message = "Email already in use!" });
                     }
                 }
-                googleUser.UserName = model.UserName ?? googleUser.UserName;
-                googleUser.Email = model.Email ?? googleUser.Email;
-                googleUser.Role = model.Role;
-                _dailyCheckDbContext.SaveChanges();
+                if (googleUser != null)
+                {
+                    googleUser.UserName = model.UserName ?? googleUser.UserName;
+                    googleUser.Email = model.Email ?? googleUser.Email;
+                    googleUser.Role = model.Role;
+                }
+
+                await _dailyCheckDbContext.SaveChangesAsync();
                 return Ok(new { message = "User updated succesfully.", googleUser });
             }
         }
 
         // PUT: api/login/user/{id}
         [HttpPut("mainuser/update")]
-        public IActionResult UpdateMainUser([FromBody] UserUpdateViewModel model)
+        public async Task<IActionResult> UpdateMainUser([FromBody] UserUpdateViewModel model)
         {
             var user = _dailyCheckDbContext.Users.Find(model.Id);
             if (user != null && model.Password.Length <= 0)
@@ -280,16 +304,19 @@ namespace DailyCheckBackend.Controllers
                 }
                 user.UserName = model.UserName ?? user.UserName;
                 user.Email = model.Email ?? user.Email;
-                _dailyCheckDbContext.SaveChanges();
+                await _dailyCheckDbContext.SaveChangesAsync();
                 return Ok(new { message = "User updated successfully.", user });
             }
             var passwordHasher = new PasswordHasher<User>();
-
+            if (user == null)
+            {
+                throw new ArgumentNullException(nameof(user), "User can't be null");
+            }
             var result = passwordHasher.VerifyHashedPassword(user, user.Password, model.Password);
             if (result == PasswordVerificationResult.Success)
             {
                 user.Password = model.NewPassword;
-                return Ok(new { message = "The password is correct" });
+                return Ok(new { message = "The password is correct", user });
             }
             else if (result == PasswordVerificationResult.Failed)
             {
@@ -305,7 +332,7 @@ namespace DailyCheckBackend.Controllers
         }
 
         [HttpDelete("delete")]
-        public IActionResult DeleteUser([FromBody] DeleteUserRequest request)
+        public async Task<IActionResult> DeleteUser([FromBody] DeleteUserRequest request)
         {
             var googleUser = _dailyCheckDbContext.GoogleUsers.FirstOrDefault(gu =>
                 gu.Id == request.userId
@@ -316,12 +343,12 @@ namespace DailyCheckBackend.Controllers
                 var user = _dailyCheckDbContext.Users.FirstOrDefault(u => u.Id == usersId);
                 if (user != null)
                     _dailyCheckDbContext.Users.Remove(user);
-                _dailyCheckDbContext.SaveChanges();
+                await _dailyCheckDbContext.SaveChangesAsync();
                 return Ok(new { message = "User deleted successfully." });
             }
             if (googleUser != null)
                 _dailyCheckDbContext.GoogleUsers.Remove(googleUser);
-            _dailyCheckDbContext.SaveChanges();
+            await _dailyCheckDbContext.SaveChangesAsync();
 
             return Ok(new { message = "User deleted successfully." });
         }
